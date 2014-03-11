@@ -2,8 +2,10 @@ from sklearn.base import RegressorMixin, BaseEstimator
 from sklearn.isotonic import IsotonicRegression
 import numpy
 from pyearth.earth import Earth
-from scipy.interpolate.fitpack2 import UnivariateSpline
-from moving_average import moving_average
+
+def moving_average(y, window_size):
+    window = numpy.ones(int(window_size)) / float(window_size)
+    return numpy.convolve(y, window, 'valid')
 
 class SmoothMovingAverage(BaseEstimator, RegressorMixin):
     def __init__(self, window_size=None):
@@ -11,7 +13,7 @@ class SmoothMovingAverage(BaseEstimator, RegressorMixin):
     
     def fit(self, X, y):
         if self.window_size is None:
-            window_size = len(X) / 10
+            window_size = len(X) / 100
         else:
             window_size = self.window_size
             
@@ -58,7 +60,7 @@ class SmoothIso(BaseEstimator, RegressorMixin):
         self.X_ = numpy.array(X_)
         self.y_ = numpy.array(y_)
         self.w_ = numpy.array(w_)
-        self.spline_ = Earth(max_degree=2, smooth=True).fit(self.X_, self.y_, sample_weight=self.w_)
+        self.spline_ = Earth(max_degree=1, smooth=True).fit(self.X_, self.y_, sample_weight=self.w_)
         print self.spline_.summary()
         
     def predict(self, X):
