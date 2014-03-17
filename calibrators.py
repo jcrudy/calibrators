@@ -2,14 +2,28 @@ from sklearn.base import RegressorMixin, BaseEstimator
 from sklearn.isotonic import IsotonicRegression
 import numpy
 from pyearth.earth import Earth
+from matplotlib import pyplot
+import pandas
 
 def moving_average(y, window_size):
     window = numpy.ones(int(window_size)) / float(window_size)
     return numpy.convolve(y, window, 'valid')
 
+def moving_average_plot(x, y, window_size, *args, **kwargs):
+    order = numpy.argsort(x)
+    y_ = moving_average(y[order], window_size)
+    pyplot.plot(x[order][int(window_size)/2 - 1:-int(window_size)/2], y_, *args, **kwargs)
+    
+def kendall(observed, predicted):
+    return pandas.Series(observed).corr(pandas.Series(predicted), method='kendall')
+
+def spearman(observed, predicted):
+    return pandas.Series(observed).corr(pandas.Series(predicted), method='spearman')
+
 class SmoothMovingAverage(BaseEstimator, RegressorMixin):
-    def __init__(self, window_size=None):
+    def __init__(self, window_size=None, **kwargs):
         self.window_size = window_size
+        self.kwargs = kwargs
     
     def fit(self, X, y):
         if self.window_size is None:
@@ -20,7 +34,8 @@ class SmoothMovingAverage(BaseEstimator, RegressorMixin):
         order = numpy.argsort(X)
         y_ = moving_average(y[order], window_size)
         x_ = X[order][int(window_size)/2 - 1:-int(window_size)/2]
-        self.spline_ = Earth(max_degree=1, smooth=True).fit(x_, y_)
+        self.spline_ = Earth(**self.kwargs).fit(x_, y_)
+        return self
     
     def predict(self, X):
         return self.spline_.predict(X)
@@ -29,9 +44,10 @@ class SmoothMovingAverage(BaseEstimator, RegressorMixin):
         return self.predict(X)
 
 class SmoothIso(BaseEstimator, RegressorMixin):
-    def __init__(self, y_min=None, y_max=None, max_degree=None):
+    def __init__(self, y_min=None, y_max=None, **kwargs):
         self.y_min = y_min
         self.y_max = y_max
+        self.kwargs = kwargs
         
     def fit(self, X, y):
         self.iso_ = IsotonicRegression(y_min=self.y_min, y_max=self.y_max).fit(X,y)
@@ -60,9 +76,9 @@ class SmoothIso(BaseEstimator, RegressorMixin):
         self.X_ = numpy.array(X_)
         self.y_ = numpy.array(y_)
         self.w_ = numpy.array(w_)
-        self.spline_ = Earth(max_degree=1, smooth=True).fit(self.X_, self.y_, sample_weight=self.w_)
-        print self.spline_.summary()
-        
+        self.spline_ = Earth(**self.kwargs).fit(self.X_, self.y_, sample_weight=self.w_)
+        return self
+    
     def predict(self, X):
         return self.spline_.predict(X)
     
